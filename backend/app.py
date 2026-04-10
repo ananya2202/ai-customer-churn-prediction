@@ -91,7 +91,7 @@ def get_risk_level(prob: float) -> dict:
         return {
             "level":  "High Risk",
             "color":  "high",
-            "action": "Initiate a retention call within 24h and offer a loyalty discount or contract upgrade.",
+            "action": "Initiate a retention call within 24h and offer a loyalty discount or contract upgrade to customergit.",
         }
     if prob >= 0.35:
         return {
