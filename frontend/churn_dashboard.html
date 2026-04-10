@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Churn Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --r: #B91C1C; --r2: #DC2626; --r3: #FEE2E2; --r4: #FFF5F5;
+    --w: #ffffff; --g: #F7F7F7; --t: #111; --tm: #555; --tl: #999;
+    --br: 16px; --brm: 10px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--g); color: var(--t); }
+  .dash { max-width: 980px; margin: 0 auto; padding: 2rem 1.75rem; }
+
+  .header { background: var(--r); color: var(--w); padding: 2rem; border-radius: var(--br); margin-bottom: 2.5rem; display: flex; align-items: flex-end; justify-content: space-between; }
+  .header h1 { font-family: 'DM Serif Display', serif; font-size: 28px; font-weight: 400; letter-spacing: -0.5px; line-height: 1.2; }
+  .header p { font-size: 13px; opacity: 0.7; margin-top: 6px; }
+  .header-badge { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35); padding: 7px 16px; border-radius: 30px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+
+  .sec-head { font-family: 'DM Serif Display', serif; font-size: 20px; font-weight: 400; color: var(--t); margin-bottom: 1.25rem; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 3rem; }
+  .stat-card { background: var(--w); border-radius: var(--br); padding: 1.4rem 1.25rem; }
+  .stat-card .label { font-size: 11px; color: var(--tl); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+  .stat-card .value { font-size: 30px; font-weight: 500; color: var(--t); line-height: 1; }
+  .stat-card .sub { font-size: 12px; color: var(--tm); margin-top: 7px; }
+  .stat-card.danger .value { color: var(--r); }
+  .stat-card .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+
+  .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 3rem; }
+  .card { background: var(--w); border-radius: var(--br); padding: 1.75rem; }
+  .card-title { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; color: var(--tl); margin-bottom: 1.4rem; display: flex; align-items: center; gap: 8px; }
+  .card-title .dot-r { width: 6px; height: 6px; border-radius: 50%; background: var(--r); display: inline-block; flex-shrink: 0; }
+
+  .form-row { margin-bottom: 16px; }
+  .form-row label { display: block; font-size: 12px; color: var(--tm); margin-bottom: 5px; font-weight: 500; }
+  .form-row input, .form-row select { width: 100%; padding: 10px 13px; font-size: 13px; border: 1.5px solid #EBEBEB; border-radius: var(--brm); background: var(--g); color: var(--t); font-family: 'DM Sans', sans-serif; }
+  .form-row input:focus, .form-row select:focus { outline: none; border-color: var(--r); background: var(--w); }
+  .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .predict-btn { width: 100%; padding: 13px; background: var(--r); color: var(--w); border: none; border-radius: var(--brm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 8px; }
+  .predict-btn:hover { background: var(--r2); }
+
+  .result-panel { display: none; }
+  .result-panel.show { display: block; }
+  .prediction-badge { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: var(--brm); margin-bottom: 18px; }
+  .prediction-badge.churn { background: var(--r3); }
+  .prediction-badge.nochurn { background: #DCFCE7; }
+  .badge-icon { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; font-weight: 700; }
+  .churn .badge-icon { background: var(--r); color: var(--w); }
+  .nochurn .badge-icon { background: #16A34A; color: var(--w); }
+  .badge-text .main { font-size: 17px; font-weight: 500; }
+  .badge-text .sub { font-size: 12px; color: var(--tm); margin-top: 3px; }
+
+  .prob-row { display: flex; align-items: center; gap: 12px; margin-bottom: 13px; }
+  .prob-label { font-size: 12px; color: var(--tm); width: 110px; flex-shrink: 0; }
+  .prob-bar-wrap { flex: 1; height: 7px; background: #F0F0F0; border-radius: 4px; overflow: hidden; }
+  .prob-bar { height: 100%; border-radius: 4px; background: var(--r); transition: width 0.55s ease; }
+  .prob-bar.green { background: #16A34A; }
+  .prob-val { font-size: 13px; font-weight: 500; min-width: 38px; text-align: right; }
+
+  .risk-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 30px; font-size: 12px; font-weight: 500; margin-top: 4px; }
+  .risk-high { background: var(--r3); color: var(--r); }
+  .risk-medium { background: #FEF9C3; color: #92400E; }
+  .risk-low { background: #DCFCE7; color: #15803D; }
+
+  .factor-list { list-style: none; }
+  .factor-list li { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: var(--brm); background: var(--r4); margin-bottom: 8px; font-size: 13px; color: var(--t); line-height: 1.5; }
+  .factor-list li .ficon { width: 20px; height: 20px; border-radius: 50%; background: var(--r); color: var(--w); display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; margin-top: 1px; font-weight: 700; }
+
+  .action-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .action-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--tl); padding: 6px 10px; border-bottom: 1.5px solid #F0F0F0; }
+  .action-table td { padding: 11px 10px; border-bottom: 1px solid #F7F7F7; vertical-align: middle; line-height: 1.45; }
+  .action-table tr:last-child td { border-bottom: none; }
+  .badge-risk { padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 500; }
+  .badge-high { background: var(--r3); color: var(--r); }
+  .badge-med { background: #FEF9C3; color: #92400E; }
+  .badge-low { background: #DCFCE7; color: #15803D; }
+  .highlighted-row td { background: var(--r4); }
+  .action-highlight { display: none; margin-top: 14px; padding: 12px 14px; border-radius: 0 var(--brm) var(--brm) 0; font-size: 13px; line-height: 1.55; }
+
+  .insight-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; border-bottom: 1px solid #F0F0F0; }
+  .insight-item:last-child { border: none; padding-bottom: 0; }
+  .insight-num { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--r); flex-shrink: 0; line-height: 1; margin-top: 2px; }
+  .insight-text .main { font-size: 13px; font-weight: 500; color: var(--t); }
+  .insight-text .sub { font-size: 12px; color: var(--tm); margin-top: 3px; line-height: 1.45; }
+
+  .scenario-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .chip { padding: 8px 16px; border: 1.5px solid #EBEBEB; border-radius: 30px; font-size: 12px; cursor: pointer; background: var(--w); color: var(--tm); transition: all 0.15s; }
+  .chip:hover { border-color: var(--r); color: var(--r); }
+  .chip.active { background: var(--r); color: var(--w); border-color: var(--r); }
+  .scenario-result { padding: 14px 16px; background: var(--g); border-radius: var(--brm); font-size: 13px; }
+  .sr-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--tl); margin-bottom: 10px; }
+  .sr-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #EBEBEB; }
+  .sr-row:last-child { border: none; }
+  .sr-row .k { color: var(--tm); }
+  .sr-row .v { font-weight: 500; }
+
+  .full-card { background: var(--w); border-radius: var(--br); padding: 1.75rem; margin-bottom: 2rem; }
+  .report-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; background: var(--r); color: var(--w); border: none; border-radius: var(--brm); font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .report-btn:hover { background: var(--r2); }
+  .report-note { font-size: 13px; color: var(--tm); margin-bottom: 18px; line-height: 1.55; }
+  .report-preview { display: none; margin-top: 1.25rem; padding: 16px; background: var(--g); border-radius: var(--brm); font-size: 12.5px; }
+  .report-preview.show { display: block; }
+  .report-preview h3 { font-size: 13px; font-weight: 500; color: var(--r); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .rrow { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #EBEBEB; }
+  .rrow:last-child { border: none; }
+  .rrow .k { color: var(--tm); }
+  .rrow .v { font-weight: 500; }
+
+  .placeholder-state { display: flex; align-items: center; justify-content: center; height: 220px; color: var(--tl); font-size: 13px; flex-direction: column; gap: 12px; }
+  .placeholder-ring { width: 52px; height: 52px; border: 2px dashed #DDD; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+
+  @media (max-width: 640px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .main-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="dash">
+
+  <div class="header">
+    <div>
+      <h1>Churn Intelligence<br><em>Dashboard</em></h1>
+      <p>Business Decision Support · Telecom Analytics</p>
+    </div>
+    <div class="header-badge">Live Predictions</div>
+  </div>
+
+  <p class="sec-head">Overview</p>
+  <div class="stats-grid">
+    <div class="stat-card danger">
+      <div class="label">Churn Rate</div>
+      <div class="value">26.5%</div>
+      <div class="sub"><span class="dot" style="background:var(--r)"></span>Above 20% target</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total Customers</div>
+      <div class="value">7,043</div>
+      <div class="sub">Active accounts</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="label">High Risk</div>
+      <div class="value">1,862</div>
+      <div class="sub">Need attention now</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Avg Monthly Charges</div>
+      <div class="value">$64.80</div>
+      <div class="sub">Per customer</div>
+    </div>
+  </div>
+
+  <p class="sec-head">Customer Prediction</p>
+  <div class="main-grid">
+    <div class="card">
+      <div class="card-title"><span class="dot-r"></span> Enter Customer Details</div>
+      <div class="form-2col">
+        <div class="form-row">
+          <label>Tenure (months)</label>
+          <input type="number" id="tenure" value="3" min="0" max="72" />
+        </div>
+        <div class="form-row">
+          <label>Monthly Charges ($)</label>
+          <input type="number" id="charges" value="85" min="0" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Contract Type</label>
+        <select id="contract">
+          <option value="month">Month-to-Month</option>
+          <option value="one">One Year</option>
+          <option value="two">Two Year</option>
+        </select>
+      </div>
+      <div class="form-2col">
+        <div class="form-row">
+          <label>Internet Service</label>
+          <select id="internet">
+            <option value="fiber">Fiber Optic</option>
+            <option value="dsl">DSL</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Tech Support</label>
+          <select id="support">
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-2col">
+        <div class="form-row">
+          <label>Payment Method</label>
+          <select id="paymentMethod">
+            <option value="Electronic check">Electronic check</option>
+            <option value="Mailed check">Mailed check</option>
+            <option value="Bank transfer (automatic)">Bank transfer</option>
+            <option value="Credit card (automatic)">Credit card</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Online Security</label>
+          <select id="onlineSecurity">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+      </div>
+      <button class="predict-btn" onclick="runPrediction()">Run Prediction →</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="dot-r"></span> Prediction Result</div>
+      <div class="placeholder-state" id="placeholder">
+        <div class="placeholder-ring">?</div>
+        Enter details and run a prediction
+      </div>
+      <div class="result-panel" id="resultPanel">
+        <div class="prediction-badge" id="predBadge">
+          <div class="badge-icon" id="predIcon">!</div>
+          <div class="badge-text">
+            <div class="main" id="predLabel">—</div>
+            <div class="sub" id="predSub">—</div>
+          </div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-label">Churn probability</div>
+          <div class="prob-bar-wrap"><div class="prob-bar" id="churnBar" style="width:0%"></div></div>
+          <div class="prob-val" id="churnPct">—</div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-label">Retention chance</div>
+          <div class="prob-bar-wrap"><div class="prob-bar green" id="retainBar" style="width:0%"></div></div>
+          <div class="prob-val" id="retainPct">—</div>
+        </div>
+        <div style="margin-top:12px;"><span class="risk-pill" id="riskPill">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="card">
+      <div class="card-title"><span class="dot-r"></span> Why This Customer May Churn</div>
+      <div id="factorContainer">
+        <p style="font-size:13px;color:var(--tl);">Run a prediction to see contributing factors.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot-r"></span> Recommended Actions</div>
+      <table class="action-table">
+        <thead><tr><th>Risk Level</th><th>Suggested Action</th></tr></thead>
+        <tbody>
+          <tr id="row-high"><td><span class="badge-risk badge-high">High</span></td><td>Retention call + loyalty discount</td></tr>
+          <tr id="row-med"><td><span class="badge-risk badge-med">Medium</span></td><td>Send engagement email</td></tr>
+          <tr id="row-low"><td><span class="badge-risk badge-low">Low</span></td><td>Maintain service quality</td></tr>
+        </tbody>
+      </table>
+      <div class="action-highlight" id="actionHighlight"></div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="card">
+      <div class="card-title"><span class="dot-r"></span> Business Insights</div>
+      <div class="insight-item">
+        <div class="insight-num">3×</div>
+        <div class="insight-text">
+          <div class="main">Month-to-month customers churn far more</div>
+          <div class="sub">42% churn rate vs 11% on annual contracts</div>
+        </div>
+      </div>
+      <div class="insight-item">
+        <div class="insight-num">65%</div>
+        <div class="insight-text">
+          <div class="main">Churners leave within the first year</div>
+          <div class="sub">First 12 months are the highest-risk window</div>
+        </div>
+      </div>
+      <div class="insight-item">
+        <div class="insight-num">58%</div>
+        <div class="insight-text">
+          <div class="main">High charges + no support = danger zone</div>
+          <div class="sub">Customers paying >$75/mo without tech support</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot-r"></span> Scenario Testing</div>
+      <div class="scenario-chips">
+        <div class="chip" onclick="loadScenario('high',this)">High-risk customer</div>
+        <div class="chip" onclick="loadScenario('medium',this)">Medium-risk customer</div>
+        <div class="chip" onclick="loadScenario('loyal',this)">Loyal customer</div>
+      </div>
+      <div class="scenario-result" id="scenarioResult">
+        <div class="sr-label" id="srLabel">Select a customer type to preview</div>
+        <div id="srRows"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sec-head">Report Generation</p>
+  <div class="full-card">
+    <div class="card-title"><span class="dot-r"></span> Generate Customer Report</div>
+    <p class="report-note">Export a complete prediction summary — inputs, risk level, key churn factors, and the recommended action — ready to share with your team.</p>
+    <button class="report-btn" onclick="generateReport()">Generate Report ↗</button>
+    <div class="report-preview" id="reportPreview"></div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://127.0.0.1:5000';
+
+  const scenarios = {
+    high:   { tenure:2,  monthlyCharges:95, contract:'Month-to-month', internetService:'Fiber optic', techSupport:'No',  paymentMethod:'Electronic check',            onlineSecurity:'No',  label:'High-Risk Customer'   },
+    medium: { tenure:18, monthlyCharges:65, contract:'Month-to-month', internetService:'DSL',          techSupport:'No',  paymentMethod:'Mailed check',                 onlineSecurity:'No',  label:'Medium-Risk Customer' },
+    loyal:  { tenure:52, monthlyCharges:45, contract:'Two year',        internetService:'DSL',          techSupport:'Yes', paymentMethod:'Bank transfer (automatic)',    onlineSecurity:'Yes', label:'Loyal Customer'       }
+  };
+
+  function getFormData() {
+    return {
+      tenure:           parseFloat(document.getElementById('tenure').value)   || 0,
+      monthlyCharges:   parseFloat(document.getElementById('charges').value)  || 0,
+      contract:         document.getElementById('contract').value === 'month' ? 'Month-to-month'
+                      : document.getElementById('contract').value === 'one'   ? 'One year' : 'Two year',
+      internetService:  document.getElementById('internet').value === 'fiber' ? 'Fiber optic'
+                      : document.getElementById('internet').value === 'none'  ? 'No' : 'DSL',
+      techSupport:      document.getElementById('support').value === 'yes' ? 'Yes' : 'No',
+      paymentMethod:    document.getElementById('paymentMethod').value,
+      onlineSecurity:   document.getElementById('onlineSecurity').value,
+      paperlessBilling: 'Yes',
+      partner:          false,
+      dependents:       false,
+      phoneService:     true,
+      seniorCitizen:    false,
+      multipleLines:    'No',
+      onlineBackup:     'No',
+      deviceProtection: 'No',
+      streamingTV:      'No',
+      streamingMovies:  'No',
+    };
+  }
+
+  function applyResult(data) {
+    const pct     = data.churnProbability;
+    const isChurn = data.willChurn;
+    const risk    = { level: data.riskLevel, color: data.riskColor, action: data.recommendedAction };
+    const factors = data.contributingFactors;
+
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('resultPanel').className = 'result-panel show';
+
+    document.getElementById('predBadge').className   = 'prediction-badge ' + (isChurn ? 'churn' : 'nochurn');
+    document.getElementById('predIcon').textContent  = isChurn ? '!' : 'OK';
+    document.getElementById('predLabel').textContent = isChurn ? 'Likely to Churn' : 'Likely to Stay';
+    document.getElementById('predSub').textContent   = 'Churn probability: ' + pct + '%';
+
+    document.getElementById('churnBar').style.width  = pct + '%';
+    document.getElementById('churnPct').textContent  = pct + '%';
+    document.getElementById('retainBar').style.width = data.retainProbability + '%';
+    document.getElementById('retainPct').textContent = data.retainProbability + '%';
+
+    const riskCls = { 'High Risk':'risk-high', 'Medium Risk':'risk-medium', 'Low Risk':'risk-low' };
+    const pill = document.getElementById('riskPill');
+    pill.className   = 'risk-pill ' + (riskCls[risk.level] || 'risk-low');
+    pill.textContent = risk.level;
+
+    const fc     = document.getElementById('factorContainer');
+    const stable = factors.length === 1 && factors[0].includes('stable');
+    fc.innerHTML  = stable
+      ? '<p style="font-size:13px;color:var(--tl);">' + factors[0] + '</p>'
+      : '<ul class="factor-list">' + factors.map(f => '<li><div class="ficon">!</div>' + f + '</li>').join('') + '</ul>';
+
+    const rowMap = { 'High Risk':'row-high', 'Medium Risk':'row-med', 'Low Risk':'row-low' };
+    ['row-high','row-med','row-low'].forEach(id => {
+      document.getElementById(id).className = id === rowMap[risk.level] ? 'highlighted-row' : '';
+    });
+
+    const hlBg  = { 'High Risk':'var(--r3)', 'Medium Risk':'#FEF9C3', 'Low Risk':'#DCFCE7' };
+    const hlBrd = { 'High Risk':'var(--r)',   'Medium Risk':'#CA8A04', 'Low Risk':'#16A34A' };
+    const ah = document.getElementById('actionHighlight');
+    ah.style.display      = 'block';
+    ah.style.background   = hlBg[risk.level]  || 'var(--r3)';
+    ah.style.borderLeft   = '3px solid ' + (hlBrd[risk.level] || 'var(--r)');
+    ah.style.borderRadius = '0 10px 10px 0';
+    ah.textContent        = risk.action;
+
+    lastResult = { data: getFormData(), result: data };
+  }
+
+  let lastResult = null;
+
+  async function runPrediction() {
+    const btn = document.querySelector('.predict-btn');
+    btn.textContent = 'Running...';
+    btn.disabled = true;
+
+    try {
+      const payload  = getFormData();
+      const response = await fetch(API + '/predict', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error('Server error ' + response.status);
+      const data = await response.json();
+      applyResult(data);
+    } catch (err) {
+      alert('Could not reach the prediction server.\nMake sure app.py is running on port 5000.\n\n' + err.message);
+    } finally {
+      btn.textContent = 'Run Prediction →';
+      btn.disabled = false;
+    }
+  }
+
+  async function loadScenario(type, el) {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    const s = scenarios[type];
+
+    const contractRev = { 'Month-to-month':'month', 'One year':'one', 'Two year':'two' };
+    const internetRev = { 'Fiber optic':'fiber', 'DSL':'dsl', 'No':'none' };
+
+    document.getElementById('tenure').value          = s.tenure;
+    document.getElementById('charges').value         = s.monthlyCharges;
+    document.getElementById('contract').value        = contractRev[s.contract]        || 'month';
+    document.getElementById('internet').value        = internetRev[s.internetService] || 'dsl';
+    document.getElementById('support').value         = s.techSupport === 'Yes' ? 'yes' : 'no';
+    document.getElementById('paymentMethod').value   = s.paymentMethod;
+    document.getElementById('onlineSecurity').value  = s.onlineSecurity;
+
+    document.getElementById('srLabel').textContent = s.label + ' — auto-filled above';
+    document.getElementById('srRows').innerHTML = '';
+
+    await runPrediction();
+  }
+
+  function generateReport() {
+    const rp = document.getElementById('reportPreview');
+    if (!lastResult) {
+      rp.innerHTML = '<p style="color:var(--tl);font-size:13px;">Please run a prediction first.</p>';
+      rp.className = 'report-preview show';
+      return;
+    }
+    const { data, result } = lastResult;
+    const date = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    rp.innerHTML = `
+      <h3>Customer Churn Report — ${date}</h3>
+      <div class="rrow"><span class="k">Tenure</span><span class="v">${data.tenure} months</span></div>
+      <div class="rrow"><span class="k">Monthly charges</span><span class="v">$${data.monthlyCharges}</span></div>
+      <div class="rrow"><span class="k">Contract type</span><span class="v">${data.contract}</span></div>
+      <div class="rrow"><span class="k">Internet service</span><span class="v">${data.internetService}</span></div>
+      <div class="rrow"><span class="k">Prediction</span><span class="v">${result.willChurn ? 'Will Churn' : 'Will Stay'}</span></div>
+      <div class="rrow"><span class="k">Churn probability</span><span class="v">${result.churnProbability}%</span></div>
+      <div class="rrow"><span class="k">Risk level</span><span class="v">${result.riskLevel}</span></div>
+      <div class="rrow"><span class="k">Key factor</span><span class="v" style="max-width:55%;text-align:right;">${result.contributingFactors[0]}</span></div>
+      <div class="rrow"><span class="k">Recommended action</span>
+        <span class="v" style="max-width:52%;text-align:right;color:var(--r)">${result.recommendedAction.slice(0,60)}...</span>
+      </div>`;
+    rp.className = 'report-preview show';
+  }
+
+  // Load real stats on page load
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const res  = await fetch(API + '/stats');
+      const data = await res.json();
+      const cards = document.querySelectorAll('.stat-card .value');
+      if (cards.length >= 4) {
+        cards[0].textContent = data.churnRate + '%';
+        cards[1].textContent = data.totalCustomers.toLocaleString();
+        cards[2].textContent = data.highRisk.toLocaleString();
+        cards[3].textContent = '$' + data.avgMonthlyCharges;
+      }
+    } catch (_) { /* server not running — keep hardcoded fallback values */ }
+  });
+</script>
+</body>
+</html>
