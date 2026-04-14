@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Churn Intelligence Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -302,6 +303,27 @@
       </div>
     </div>
   </div>
+  <p class="sec-head">Churn Trends & Feature Analysis</p>
+<div class="main-grid">
+  <div class="card">
+    <div class="card-title"><span class="dot-r"></span> Churn Rate by Contract Type</div>
+    <canvas id="contractChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="dot-r"></span> Churn Rate by Tenure Group</div>
+    <canvas id="tenureChart" height="200"></canvas>
+  </div>
+</div>
+<div class="main-grid">
+  <div class="card">
+    <div class="card-title"><span class="dot-r"></span> Churn Rate by Monthly Charges</div>
+    <canvas id="chargeChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="dot-r"></span> Feature Impact on Churn</div>
+    <canvas id="impactChart" height="200"></canvas>
+  </div>
+</div>
 
   <p class="sec-head">Report Generation</p>
   <div class="full-card">
@@ -315,6 +337,94 @@
 
 <script>
   const API = 'http://127.0.0.1:5000';
+  async function loadAnalysis() {
+  try {
+    const res  = await fetch(API + '/analysis');
+    const data = await res.json();
+
+    const RED  = '#B91C1C';
+    const REDS = ['#B91C1C','#DC2626','#EF4444','#F87171','#FCA5A5','#FEE2E2'];
+
+    const opts = {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 60,
+          ticks: { callback: v => v + '%' }
+        }
+      }
+    };
+
+    new Chart(document.getElementById('contractChart'), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(data.contractChurn),
+        datasets: [{
+          data: Object.values(data.contractChurn),
+          backgroundColor: REDS,
+          borderRadius: 6
+        }]
+      },
+      options: opts
+    });
+
+    new Chart(document.getElementById('tenureChart'), {
+      type: 'line',
+      data: {
+        labels: Object.keys(data.tenureChurn),
+        datasets: [{
+          data: Object.values(data.tenureChurn),
+          borderColor: RED,
+          backgroundColor: 'rgba(185,28,28,0.08)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 5
+        }]
+      },
+      options: opts
+    });
+
+    new Chart(document.getElementById('chargeChart'), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(data.chargeChurn),
+        datasets: [{
+          data: Object.values(data.chargeChurn),
+          backgroundColor: REDS,
+          borderRadius: 6
+        }]
+      },
+      options: opts
+    });
+
+    new Chart(document.getElementById('impactChart'), {
+      type: 'bar',
+      data: {
+        labels: Object.keys(data.featureImpact),
+        datasets: [{
+          data: Object.values(data.featureImpact),
+          backgroundColor: RED,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        ...opts,
+        indexAxis: 'y',
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { callback: v => v.toFixed(1) + '%' }
+          }
+        }
+      }
+    });
+
+  } catch (_) {
+    console.log('Analysis not available — is app.py running?');
+  }
+}
 
   const scenarios = {
     high:   { tenure:2,  monthlyCharges:95, contract:'Month-to-month', internetService:'Fiber optic', techSupport:'No',  paymentMethod:'Electronic check',            onlineSecurity:'No',  label:'High-Risk Customer'   },
@@ -478,6 +588,7 @@
         cards[3].textContent = '$' + data.avgMonthlyCharges;
       }
     } catch (_) { /* server not running — keep hardcoded fallback values */ }
+    loadAnalysis();  
   });
 </script>
 </body>

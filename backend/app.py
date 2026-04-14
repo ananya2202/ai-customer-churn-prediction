@@ -179,7 +179,62 @@ def stats():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+@app.route("/analysis", methods=["GET"])
+def analysis():
+    try:
+        df = pd.read_csv(DATA)
+        df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce").fillna(0)
 
+        # 1. Churn rate by contract type
+        contract_churn = df.groupby("Contract")["Churn"].apply(
+            lambda x: (x == "Yes").mean() * 100
+        ).round(1).to_dict()
+
+        # 2. Churn rate by tenure group
+        df["TenureGroup"] = pd.cut(df["tenure"],
+            bins=[0, 12, 24, 36, 48, 60, 72],
+            labels=["0-12m", "13-24m", "25-36m", "37-48m", "49-60m", "61-72m"])
+        tenure_churn = df.groupby("TenureGroup", observed=True)["Churn"].apply(
+            lambda x: (x == "Yes").mean() * 100
+        ).round(1).to_dict()
+
+        # 3. Churn rate by internet service
+        internet_churn = df.groupby("InternetService")["Churn"].apply(
+            lambda x: (x == "Yes").mean() * 100
+        ).round(1).to_dict()
+
+        # 4. Churn rate by monthly charge band
+        df["ChargeGroup"] = pd.cut(df["MonthlyCharges"],
+            bins=[0, 35, 55, 75, 95, 120],
+            labels=["$0-35", "$35-55", "$55-75", "$75-95", "$95+"])
+        charge_churn = df.groupby("ChargeGroup", observed=True)["Churn"].apply(
+            lambda x: (x == "Yes").mean() * 100
+        ).round(1).to_dict()
+
+        # 5. Churn rate by tech support
+        support_churn = df.groupby("TechSupport")["Churn"].apply(
+            lambda x: (x == "Yes").mean() * 100
+        ).round(1).to_dict()
+
+        # 6. Top churn driver — average churn rate per feature
+        feature_impact = {
+            "Contract Type":       max(contract_churn.values()) - min(contract_churn.values()),
+            "Tenure":              tenure_churn.get("0-12m", 0) - tenure_churn.get("61-72m", 0),
+            "Internet Service":    max(internet_churn.values()) - min(internet_churn.values()),
+            "Monthly Charges":     charge_churn.get("$95+", 0) - charge_churn.get("$0-35", 0),
+            "Tech Support":        support_churn.get("No", 0) - support_churn.get("Yes", 0),
+        }
+
+        return jsonify({
+            "contractChurn":  contract_churn,
+            "tenureChurn":    tenure_churn,
+            "internetChurn":  internet_churn,
+            "chargeChurn":    charge_churn,
+            "featureImpact":  feature_impact,
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
