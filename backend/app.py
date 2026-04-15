@@ -185,12 +185,12 @@ def analysis():
         df = pd.read_csv(DATA)
         df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce").fillna(0)
 
-        # 1. Churn rate by contract type
+        #contract type
         contract_churn = df.groupby("Contract")["Churn"].apply(
             lambda x: (x == "Yes").mean() * 100
         ).round(1).to_dict()
 
-        # 2. Churn rate by tenure group
+        # enure group
         df["TenureGroup"] = pd.cut(df["tenure"],
             bins=[0, 12, 24, 36, 48, 60, 72],
             labels=["0-12m", "13-24m", "25-36m", "37-48m", "49-60m", "61-72m"])
@@ -198,12 +198,12 @@ def analysis():
             lambda x: (x == "Yes").mean() * 100
         ).round(1).to_dict()
 
-        # 3. Churn rate by internet service
+        #  internet service
         internet_churn = df.groupby("InternetService")["Churn"].apply(
             lambda x: (x == "Yes").mean() * 100
         ).round(1).to_dict()
 
-        # 4. Churn rate by monthly charge band
+        #  monthly charge band
         df["ChargeGroup"] = pd.cut(df["MonthlyCharges"],
             bins=[0, 35, 55, 75, 95, 120],
             labels=["$0-35", "$35-55", "$55-75", "$75-95", "$95+"])
@@ -211,12 +211,11 @@ def analysis():
             lambda x: (x == "Yes").mean() * 100
         ).round(1).to_dict()
 
-        # 5. Churn rate by tech support
+        # tech support
         support_churn = df.groupby("TechSupport")["Churn"].apply(
             lambda x: (x == "Yes").mean() * 100
         ).round(1).to_dict()
 
-        # 6. Top churn driver — average churn rate per feature
         feature_impact = {
             "Contract Type":       max(contract_churn.values()) - min(contract_churn.values()),
             "Tenure":              tenure_churn.get("0-12m", 0) - tenure_churn.get("61-72m", 0),
